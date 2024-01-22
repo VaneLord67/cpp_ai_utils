@@ -1,6 +1,9 @@
 #pragma once
 #include "cpp_redis/cpp_redis"
-#include <opencv2/opencv.hpp>
+#include "opencv2/opencv.hpp"
+#include "spdlog/spdlog.h"
+#include <iostream>
+#include <fstream>
 
 #ifdef _WIN32
 #include <Winsock2.h>
@@ -35,9 +38,14 @@ namespace cpp_ai_utils {
 			const std::string videoOutputPath=std::string(),
 			const std::string videoProgressKey=std::string(),
 			const std::string videoOutputJsonPath=std::string());
+
+		std::shared_ptr<CppAiHelper> create_cpp_ai_helper_by_command_arg(int argc, char** argv);
+
 		~CppAiHelper();
 
-		void init_video_writer(const cv::VideoCapture&);
+		
+
+		void init_video_writer(const cv::VideoCapture& cap);
 		void write_frame_to_video(const cv::Mat& frame);
 		void write_json_to_file(const std::string& jsonStr);
 		void push_log_to_redis(const std::string& logStr);
