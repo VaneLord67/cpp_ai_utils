@@ -134,6 +134,8 @@ CppAiHelper::~CppAiHelper() {
 #ifdef _WIN32
 	WSACleanup();
 #endif /* _WIN32 */
+
+	spdlog::info("destruct CppAiHelper success");
 }
 
 void CppAiHelper::push_log_to_redis(const std::string& logStr) {
@@ -154,18 +156,18 @@ bool CppAiHelper::should_stop_camera() {
 		return true;
 	}
 	if (reply.is_string()) {
-		std::cerr << "Failed to get stop signal: " << reply.as_string() << std::endl;
+		spdlog::error("Failed to get stop signal: {}", reply.as_string());
 	}
 	return false;
 }
 
 void CppAiHelper::push_frame_to_redis(const cv::Mat& frame) {
 	if (m_queueName.empty()) {
-		std::cerr << "queueName not found!" << std::endl;
+		spdlog::error("queueName not found!");
 		return;
 	}
 	if (frame.empty()) {
-		std::cerr << "frame is empty!" << std::endl;
+		spdlog::error("frame is empty!");
 		return;
 	}
 	std::vector<uchar> jpg_buffer;
@@ -176,13 +178,13 @@ void CppAiHelper::push_frame_to_redis(const cv::Mat& frame) {
 	m_redisClient.commit();
 	auto reply = future.get();
 	if (reply.is_string()) {
-		std::cerr << "Failed to push data to the redis. Error: " << reply.as_string() << std::endl;
+		spdlog::error("Failed to push data to the redis. Error: {}", reply.as_string());
 	}
 }
 
 void CppAiHelper::push_str_to_redis(const std::string& str) {
 	if (m_queueName.empty()) {
-		std::cerr << "queueName not found!" << std::endl;
+		spdlog::error("queueName not found!");
 		return;
 	}
 	m_redisClient.rpush(m_queueName, { str });
@@ -190,42 +192,55 @@ void CppAiHelper::push_str_to_redis(const std::string& str) {
 }
 
 void CppAiHelper::init_video_writer(const cv::VideoCapture& cap) {
-	if (m_videoProgressKey.empty()) {
-		std::cerr << "videoProgressKey not found!" << std::endl;
-		return;
+	if (m_sourceType == SourceType::VIDEO) {
+		if (m_videoProgressKey.empty()) {
+			spdlog::error("videoProgressKey not found!");
+			return;
+		}
+		m_totalFrameCount = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_COUNT));
+		if (m_totalFrameCount == 0) {
+			spdlog::error("Failed to get video total frame count!");
+			return;
+		}
+		m_redisClient.setex(m_videoProgressKey, 3600 * 24, "0.00");
+		m_redisClient.commit();
 	}
 	if (m_videoOutputPath.empty()) {
-		std::cerr << "videoOutputPath not found!" << std::endl;
+		spdlog::error("videoOutputPath not found!");
 		return;
 	}
 	int frameWidth = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
 	int frameHeight = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
-	double fps = cap.get(cv::CAP_PROP_FPS);
+	double fps = 0;
+	if (m_sourceType == SourceType::VIDEO) {
+		fps = cap.get(cv::CAP_PROP_FPS);
+	}
+	else if (m_sourceType == SourceType::CAMERA) {
+		fps = 30;
+	}
+	spdlog::info("frameWidth {}, frameHeight {}, fps {}", frameWidth, frameHeight, fps);
 
 	m_videoWriterPtr.reset(new cv::VideoWriter(m_videoOutputPath,
 		cv::VideoWriter::fourcc('a', 'v', 'c', '1'), fps, cv::Size(frameWidth, frameHeight)));
 
-	m_totalFrameCount = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_COUNT));
-	if (m_totalFrameCount == 0) {
-		std::cerr << "Failed to get video total frame count!" << std::endl;
-		return;
-	}
-	m_redisClient.setex(m_videoProgressKey, 3600 * 24,"0.00");
-	m_redisClient.commit();
+	spdlog::info("init videoWriter success");
 }
 
 void CppAiHelper::write_frame_to_video(const cv::Mat& frame) {
 	if (!m_videoWriterPtr) {
-		std::cerr << "Failed to get videoWriter, please init video writer." << std::endl;
+		spdlog::error("Failed to get videoWriter, please init video writer.");
 		return;
 	}
 	if (!frame.empty()) {
 		m_videoWriterPtr->write(frame);
 	}
+	else {
+		spdlog::error("write_frame_to_video: frame is empty!");
+	}
 	if (m_sourceType == SourceType::VIDEO) {
 		m_currentFrameCount++;
 		if (m_currentFrameCount > m_totalFrameCount) {
-			std::cerr << "currentFrameCount > totalFrameCount!" << std::endl;
+			spdlog::error("currentFrameCount > totalFrameCount!");
 			m_currentFrameCount = m_totalFrameCount;
 		}
 		double progress = static_cast<double>(m_currentFrameCount) / m_totalFrameCount;
@@ -237,11 +252,11 @@ void CppAiHelper::write_frame_to_video(const cv::Mat& frame) {
 
 void CppAiHelper::write_json_to_file(const std::string& jsonStr) {
 	if (m_outputJsonPath.empty()) {
-		std::cerr << "json path not found!" << std::endl;
+		spdlog::error("json path not found!");
 		return;
 	}
 	if (!m_jsonFilePtr) {
-		std::cerr << "Failed to write json file!" << std::endl;
+		spdlog::error("Failed to write json file!");
 		return;
 	}
 	*m_jsonFilePtr << jsonStr << std::endl;
