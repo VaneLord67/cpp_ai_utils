@@ -222,15 +222,17 @@ void CppAiHelper::write_frame_to_video(const cv::Mat& frame) {
 	if (!frame.empty()) {
 		m_videoWriterPtr->write(frame);
 	}
-	m_currentFrameCount++;
-	if (m_currentFrameCount > m_totalFrameCount) {
-		std::cerr << "currentFrameCount > totalFrameCount!" << std::endl;
-		m_currentFrameCount = m_totalFrameCount;
+	if (m_sourceType == SourceType::VIDEO) {
+		m_currentFrameCount++;
+		if (m_currentFrameCount > m_totalFrameCount) {
+			std::cerr << "currentFrameCount > totalFrameCount!" << std::endl;
+			m_currentFrameCount = m_totalFrameCount;
+		}
+		double progress = static_cast<double>(m_currentFrameCount) / m_totalFrameCount;
+		std::string progressStr = cv::format("%.2f", progress);
+		m_redisClient.setex(m_videoProgressKey, 3600 * 24, progressStr);
+		m_redisClient.commit();
 	}
-	double progress = static_cast<double>(m_currentFrameCount) / m_totalFrameCount;
-	std::string progressStr = cv::format("%.2f", progress);
-	m_redisClient.setex(m_videoProgressKey, 3600 * 24, progressStr);
-	m_redisClient.commit();
 }
 
 void CppAiHelper::write_json_to_file(const std::string& jsonStr) {
