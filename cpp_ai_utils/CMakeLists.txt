@@ -53,3 +53,5 @@ target_link_libraries(cpp_ai_utils
     libcpp_redis.so
     libtacopie.so
 )
+
+set_target_properties(cpp_ai_utils PROPERTIES POSITION_INDEPENDENT_CODE ON)
