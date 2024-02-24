@@ -193,17 +193,17 @@ void CppAiHelper::push_str_to_redis(const std::string& str) {
 }
 
 int CppAiHelper::manual_get_total_frame_count() {
+	int total_frame_count = 0;
 	if (m_videoPath.empty()) {
 		spdlog::error("videoPath not found!");
-		return;
+		return total_frame_count;
 	}
-	cv::Mat frame;
-	int total_frame_count = 0;
 	cv::VideoCapture cap(m_videoPath);
 	if (!cap.isOpened()) {
 		spdlog::error("Failed to manual get total frame count!");
 		return total_frame_count;
 	}
+	cv::Mat frame;
 	while (true) {
 		cap >> frame; // 读取下一帧
 		if (frame.empty()) // 如果已经到达视频结尾，则退出循环
