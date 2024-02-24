@@ -9,12 +9,13 @@ CppAiHelper::CppAiHelper(const std::string logKey,
 	const std::string stopSignalKey, 
 	const std::string videoOutputPath,
 	const std::string videoProgressKey,
-	const std::string videoOutputJsonPath):
+	const std::string videoOutputJsonPath,
+	const std::string videoPath):
 
 	m_queueName(queueName), m_stopSignalKey(stopSignalKey), m_logKey(logKey), 
 	m_videoOutputPath(videoOutputPath), m_videoProgressKey(videoProgressKey), m_outputJsonPath(videoOutputJsonPath),
 	m_videoWriterPtr(nullptr), m_totalFrameCount(0), m_currentFrameCount(0), 
-	m_sourceType(cpp_ai_utils::SourceType::IMAGE) {
+	m_sourceType(cpp_ai_utils::SourceType::IMAGE), m_videoPath(videoPath) {
 
 #ifdef _WIN32
 	//! Windows netword DLL init
@@ -191,6 +192,27 @@ void CppAiHelper::push_str_to_redis(const std::string& str) {
 	m_redisClient.sync_commit();
 }
 
+int CppAiHelper::manual_get_total_frame_count() {
+	if (m_videoPath.empty()) {
+		spdlog::error("videoPath not found!");
+		return;
+	}
+	cv::Mat frame;
+	int total_frame_count = 0;
+	cv::VideoCapture cap(m_videoPath);
+	if (!cap.isOpened()) {
+		spdlog::error("Failed to manual get total frame count!");
+		return total_frame_count;
+	}
+	while (true) {
+		cap >> frame; // 读取下一帧
+		if (frame.empty()) // 如果已经到达视频结尾，则退出循环
+			break;
+		total_frame_count++;
+	}
+	return total_frame_count;
+}
+
 void CppAiHelper::init_video_writer(const cv::VideoCapture& cap) {
 	if (m_sourceType == SourceType::VIDEO) {
 		if (m_videoProgressKey.empty()) {
@@ -198,7 +220,11 @@ void CppAiHelper::init_video_writer(const cv::VideoCapture& cap) {
 			return;
 		}
 		m_totalFrameCount = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_COUNT));
-		if (m_totalFrameCount == 0) {
+		if (m_totalFrameCount <= 0) {
+			spdlog::info("manual to get video total frame count");
+			m_totalFrameCount = manual_get_total_frame_count();
+		}
+		if (m_totalFrameCount <= 0) {
 			spdlog::error("Failed to get video total frame count!");
 			return;
 		}

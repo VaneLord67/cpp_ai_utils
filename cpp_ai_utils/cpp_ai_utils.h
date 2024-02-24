@@ -22,6 +22,7 @@ namespace cpp_ai_utils {
 		std::string m_videoOutputPath;
 		std::string m_videoProgressKey;
 		std::string m_outputJsonPath;
+		std::string m_videoPath;
 		std::shared_ptr<std::ofstream> m_jsonFilePtr;
 		std::shared_ptr<cv::VideoWriter> m_videoWriterPtr; // 使用指针进行延迟初始化
 		int m_totalFrameCount;
@@ -37,7 +38,8 @@ namespace cpp_ai_utils {
 			const std::string stopSignalKey=std::string(),
 			const std::string videoOutputPath=std::string(),
 			const std::string videoProgressKey=std::string(),
-			const std::string videoOutputJsonPath=std::string());
+			const std::string videoOutputJsonPath=std::string(),
+			const std::string videoPath=std::string());
 
 		std::shared_ptr<CppAiHelper> create_cpp_ai_helper_by_command_arg(int argc, char** argv);
 
@@ -46,6 +48,7 @@ namespace cpp_ai_utils {
 		
 
 		void init_video_writer(const cv::VideoCapture& cap);
+		int manual_get_total_frame_count();
 		void write_frame_to_video(const cv::Mat& frame);
 		void write_json_to_file(const std::string& jsonStr);
 		void push_log_to_redis(const std::string& logStr);
